@@ -3,20 +3,17 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class IsAdmin
 {
-    public function handle($request, Closure $next)
+    public function handle(Request $request, Closure $next): Response
     {
-        if (!auth()->user() || !auth()->user()->isAdmin()) {
-            abort(403, 'Admin access only');
+        if ($request->user() && $request->user()->isAdmin()) {
+            return $next($request);
         }
-        return $next($request);
+
+        return response()->json(['error' => 'Access Denied. Admin rights required.'], 403);
     }
 }
-Route::middleware(['auth:sanctum'])->get('/admin-check', function (Request $request) {
-    return response()->json([
-        'is_admin' => $request->user()->isAdmin()
-    ]);
-});
-

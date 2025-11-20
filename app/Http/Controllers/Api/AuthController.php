@@ -4,41 +4,29 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Auth; // <-- ДОБАВЬ ЭТУ СТРОКУ
 use App\Models\User;
 use Kreait\Firebase\Factory;
 
 class AuthController extends Controller
 {
-    /**
-     * Google OAuth авторизация через Firebase
-     */
     public function googleAuth(Request $request)
     {
         try {
-            // Логируем начало процесса
             \Log::info('🔐 Начало Google OAuth');
             
-            // Валидация idToken
-            $request->validate([
-                'idToken' => 'required|string'
-            ]);
+            $request->validate(['idToken' => 'required|string']);
 
-            // Инициализация Firebase Admin SDK
             $firebaseCredentialsPath = base_path(env('FIREBASE_CREDENTIALS'));
             
             if (!file_exists($firebaseCredentialsPath)) {
                 \Log::error('❌ Firebase credentials файл не найден');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Firebase configuration error'
-                ], 500);
+                return response()->json(['success' => false, 'message' => 'Firebase configuration error'], 500);
             }
 
             $factory = (new Factory)->withServiceAccount($firebaseCredentialsPath);
             $firebaseAuth = $factory->createAuth();
 
-            // Верификация idToken через Firebase
             \Log::info('🔍 Проверяем idToken...');
             $verifiedIdToken = $firebaseAuth->verifyIdToken($request->idToken);
             $uid = $verifiedIdToken->claims()->get('sub');
@@ -46,48 +34,29 @@ class AuthController extends Controller
             $name = $verifiedIdToken->claims()->get('name');
             $avatar = $verifiedIdToken->claims()->get('picture');
 
-            \Log::info('✅ Token верифицирован', [
-                'uid' => $uid,
-                'email' => $email,
-                'name' => $name
-            ]);
+            \Log::info('✅ Token верифицирован', ['uid' => $uid, 'email' => $email]);
 
-            // Создаём или обновляем пользователя
             $user = User::updateOrCreate(
                 ['email' => $email],
                 [
                     'name' => $name,
                     'avatar' => $avatar,
                     'firebase_uid' => $uid,
-                    'is_admin' => false // По умолчанию не админ
                 ]
             );
 
-            \Log::info('✅ Пользователь создан/обновлен', [
-                'user_id' => $user->id,
-                'is_admin' => $user->isAdmin()
-            ]);
+            \Log::info('✅ Пользователь создан/обновлен', ['user_id' => $user->id]);
 
-            // Удаляем старые токены этого пользователя
-            $user->tokens()->delete();
+            // =================================================================
+            // ЗОЛОТОЕ РЕШЕНИЕ: ЛОГИНИМ ПОЛЬЗОВАТЕЛЯ В СТАНДАРТНУЮ СЕССИЮ LARAVEL
+            // =================================================================
+            Auth::login($user);
+            $request->session()->regenerate(); // <-- Это создает сессию и отправляет правильную cookie
+            // =================================================================
 
-            // Создаём новый Sanctum токен
-            $token = $user->createToken('api')->plainTextToken;
-            \Log::info('✅ Sanctum токен создан');
+            \Log::info('✅ Пользователь залогинен в сессию Laravel');
 
-            // Возвращаем токен в httpOnly cookie
-            $cookie = cookie(
-                'auth_token',          // название cookie
-                $token,                // значение (токен)
-                60 * 24 * 7,          // 7 дней в минутах
-                '/',                   // путь
-                'localhost',           // домен (ВАЖНО: localhost для фронта)
-                false,                 // secure (true только для HTTPS)
-                true,                  // httpOnly (максимальная защита!)
-                false,                 // raw
-                'Lax'                  // sameSite
-            );
-
+            // Теперь нам не нужно вручную создавать cookie. Laravel сделает все сам.
             return response()->json([
                 'success' => true,
                 'message' => 'Authenticated successfully',
@@ -98,17 +67,7 @@ class AuthController extends Controller
                     'avatar' => $user->avatar,
                     'is_admin' => $user->isAdmin()
                 ]
-            ])->cookie($cookie);
-
-        } catch (\Kreait\Firebase\Exception\Auth\FailedToVerifyToken $e) {
-            \Log::error('❌ Firebase token verification failed', [
-                'error' => $e->getMessage()
             ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid Firebase token'
-            ], 401);
 
         } catch (\Exception $e) {
             \Log::error('❌ Google Auth error', [

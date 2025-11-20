@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Middleware алиасы
         $middleware->alias([
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'auth.cookie' => AuthenticateFromCookie::class,
             'throttle.auth' => RateLimitMiddleware::class . ':auth',
             'throttle.api' => RateLimitMiddleware::class . ':api',
