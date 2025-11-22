@@ -5,7 +5,14 @@ namespace App\Http\Controllers\Api;
 use Illuminate\Routing\Controller;
 use Illuminate\Http\Request;
 use App\Services\FirestoreRestService;
+use App\Http\Resources\AnimeResource;
 
+/**
+ * @OA\Tag(
+ *     name="Anime",
+ *     description="API Endpoints of Anime"
+ * )
+ */
 class AnimeController extends Controller
 {
     protected $firestore;
@@ -16,19 +23,50 @@ class AnimeController extends Controller
         $this->firestore = $firestore;
     }
 
+    /**
+     * @OA\Get(
+     *      path="/api/anime",
+     *      operationId="getAnimeList",
+     *      tags={"Anime"},
+     *      summary="Get list of anime",
+     *      description="Returns list of anime",
+     *      @OA\Parameter(
+     *          name="page",
+     *          in="query",
+     *          description="Page number",
+     *          required=false,
+     *          @OA\Schema(type="integer")
+     *      ),
+     *      @OA\Parameter(
+     *          name="limit",
+     *          in="query",
+     *          description="Items per page",
+     *          required=false,
+     *          @OA\Schema(type="integer")
+     *      ),
+     *      @OA\Response(
+     *          response=200,
+     *          description="Successful operation",
+     *       ),
+     *      @OA\Response(
+     *          response=401,
+     *          description="Unauthenticated",
+     *      ),
+     *      @OA\Response(
+     *          response=403,
+     *          description="Forbidden"
+     *      )
+     *     )
+     */
     public function index(Request $request)
     {
         $limit = $request->input('limit', 10);
         $page = $request->input('page', 1);
         $offset = ($page - 1) * $limit;
 
-        // Note: FirestoreRestService implements a simplified list method
-        // that currently only supports limit (pageSize). 
-        // Full offset pagination would require more complex cursor logic.
         $animeList = $this->firestore->collection($this->collectionName)->list($limit, $offset);
 
-        return response()->json([
-            'data' => $animeList,
+        return AnimeResource::collection(collect($animeList))->additional([
             'meta' => [
                 'page' => (int)$page,
                 'limit' => (int)$limit,
@@ -44,7 +82,7 @@ class AnimeController extends Controller
             return response()->json(['error' => 'Anime not found'], 404);
         }
 
-        return response()->json($doc);
+        return new AnimeResource($doc);
     }
 
     public function store(Request $request)
@@ -58,7 +96,7 @@ class AnimeController extends Controller
 
         $doc = $this->firestore->collection($this->collectionName)->add($data);
 
-        return response()->json($doc, 201);
+        return new AnimeResource($doc);
     }
 
     public function update(Request $request, $id)
@@ -80,7 +118,7 @@ class AnimeController extends Controller
             return response()->json(['error' => 'Anime not found'], 404);
         }
 
-        return response()->json(['id' => $id, 'message' => 'Updated successfully']);
+        return new AnimeResource($doc);
     }
 
     public function destroy($id)

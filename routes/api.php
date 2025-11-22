@@ -31,9 +31,6 @@ Route::middleware(['auth:sanctum', 'throttle.api'])->group(function () {
     });
 });
 
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'ok',
-        'server_time' => now()->toDateTimeString(),
-    ]);
-});
+use App\Http\Controllers\HealthCheckController;
+
+Route::get('/health', [HealthCheckController::class, 'check']);
