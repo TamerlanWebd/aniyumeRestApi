@@ -96,6 +96,9 @@ class AnimeController extends Controller
 
         $doc = $this->firestore->collection($this->collectionName)->add($data);
 
+        // Trigger Webhook Event
+        event(new \App\Events\AnimeCreated($doc));
+
         return new AnimeResource($doc);
     }
 
