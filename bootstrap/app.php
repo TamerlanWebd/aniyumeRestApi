@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // API middleware группа
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            \App\Http\Middleware\LogRequestMiddleware::class,
         ]);
 
         // ОТКЛЮЧАЕМ CSRF для API (Sanctum использует tokens)
