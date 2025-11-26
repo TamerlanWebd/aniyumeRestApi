@@ -40,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.cookie' => AuthenticateFromCookie::class,
             'throttle.auth' => RateLimitMiddleware::class . ':auth',
             'throttle.api' => RateLimitMiddleware::class . ':api',
+            'role' => \App\Http\Middleware\CheckRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -15,51 +15,44 @@ class AuthController extends Controller
         try {
             \Log::info('🔐 Начало Google OAuth');
             
-            $request->validate(['idToken' => 'required|string']);
+            $request->validate(['token' => 'required|string']);
 
-            $firebaseCredentialsPath = base_path(env('FIREBASE_CREDENTIALS'));
+            $client = new \Google\Client(['client_id' => '512857196956-ajqmk34it9bp44bsrnf86m7fr2h8g9r0.apps.googleusercontent.com']);  // Specify the CLIENT_ID of the app that accesses the backend
             
-            if (!file_exists($firebaseCredentialsPath)) {
-                \Log::error('❌ Firebase credentials файл не найден');
-                return response()->json(['success' => false, 'message' => 'Firebase configuration error'], 500);
+            \Log::info('🔍 Проверяем token через Google Client...');
+            $payload = $client->verifyIdToken($request->token);
+            
+            if ($payload) {
+                $uid = $payload['sub'];
+                $email = $payload['email'];
+                $name = $payload['name'];
+                $avatar = $payload['picture'];
+                
+                \Log::info('✅ Token верифицирован', ['uid' => $uid, 'email' => $email]);
+
+                $user = User::updateOrCreate(
+                    ['email' => $email],
+                    [
+                        'name' => $name,
+                        'avatar' => $avatar,
+                        'firebase_uid' => $uid, // We can keep this field name or rename it to google_uid if preferred
+                    ]
+                );
+            } else {
+                throw new \Exception('Invalid ID token');
             }
-
-            $factory = (new Factory)->withServiceAccount($firebaseCredentialsPath);
-            $firebaseAuth = $factory->createAuth();
-
-            \Log::info('🔍 Проверяем idToken...');
-            $verifiedIdToken = $firebaseAuth->verifyIdToken($request->idToken);
-            $uid = $verifiedIdToken->claims()->get('sub');
-            $email = $verifiedIdToken->claims()->get('email');
-            $name = $verifiedIdToken->claims()->get('name');
-            $avatar = $verifiedIdToken->claims()->get('picture');
-
-            \Log::info('✅ Token верифицирован', ['uid' => $uid, 'email' => $email]);
-
-            $user = User::updateOrCreate(
-                ['email' => $email],
-                [
-                    'name' => $name,
-                    'avatar' => $avatar,
-                    'firebase_uid' => $uid,
-                ]
-            );
 
             \Log::info('✅ Пользователь создан/обновлен', ['user_id' => $user->id]);
 
-            // =================================================================
-            // ЗОЛОТОЕ РЕШЕНИЕ: ЛОГИНИМ ПОЛЬЗОВАТЕЛЯ В СТАНДАРТНУЮ СЕССИЮ LARAVEL
-            // =================================================================
-            Auth::login($user);
-            $request->session()->regenerate(); // <-- Это создает сессию и отправляет правильную cookie
-            // =================================================================
+            // Create Sanctum token
+            $token = $user->createToken('auth_token')->plainTextToken;
 
-            \Log::info('✅ Пользователь залогинен в сессию Laravel');
+            \Log::info('✅ Token created for user', ['user_id' => $user->id]);
 
-            // Теперь нам не нужно вручную создавать cookie. Laravel сделает все сам.
             return response()->json([
                 'success' => true,
                 'message' => 'Authenticated successfully',
+                'token' => $token,
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,

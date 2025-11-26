@@ -16,11 +16,13 @@ use App\Http\Resources\AnimeResource;
 class AnimeController extends Controller
 {
     protected $firestore;
+    protected $auditService;
     protected $collectionName = 'anime';
 
-    public function __construct(FirestoreRestService $firestore)
+    public function __construct(FirestoreRestService $firestore, \App\Services\AuditService $auditService)
     {
         $this->firestore = $firestore;
+        $this->auditService = $auditService;
     }
 
     /**
@@ -99,6 +101,9 @@ class AnimeController extends Controller
         // Trigger Webhook Event
         event(new \App\Events\AnimeCreated($doc));
 
+        // Audit Log
+        $this->auditService->log('CREATE', 'Anime', $doc['id'] ?? 'unknown', [], $doc);
+
         return new AnimeResource($doc);
     }
 
@@ -121,6 +126,9 @@ class AnimeController extends Controller
             return response()->json(['error' => 'Anime not found'], 404);
         }
 
+        // Audit Log
+        $this->auditService->log('UPDATE', 'Anime', $id, [], $data);
+
         return new AnimeResource($doc);
     }
 
@@ -131,6 +139,9 @@ class AnimeController extends Controller
         if (!$success) {
              return response()->json(['error' => 'Failed to delete'], 500);
         }
+
+        // Audit Log
+        $this->auditService->log('DELETE', 'Anime', $id);
 
         return response()->json(['message' => 'Deleted successfully']);
     }

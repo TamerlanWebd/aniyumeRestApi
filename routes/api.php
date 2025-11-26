@@ -61,23 +61,27 @@ Route::middleware([ApiAnalyticsMiddleware::class])->group(function () {
         });
         
         // ==================== ADMIN ENDPOINTS ====================
-        // Note: Using 'admin' middleware if it exists, otherwise just auth check in controller or here
-        // Assuming 'admin' middleware is registered, if not we can use a closure or just trust the controller check
         Route::middleware(['throttle:admin'])->group(function () {
-            // CRUD for Anime (Using Base/V1 Controller for write ops as they are shared)
-            Route::post('anime', [\App\Http\Controllers\Api\AnimeController::class, 'store']);
-            Route::put('anime/{id}', [\App\Http\Controllers\Api\AnimeController::class, 'update']);
-            Route::patch('anime/{id}', [\App\Http\Controllers\Api\AnimeController::class, 'update']);
-            Route::delete('anime/{id}', [\App\Http\Controllers\Api\AnimeController::class, 'destroy']);
             
-            // Analytics Dashboard
-            Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
-            Route::delete('/analytics/clear', [AnalyticsController::class, 'clearAnalytics']);
-            
-            // Webhooks Management
-            Route::post('/webhooks', [WebhookController::class, 'register']);
-            Route::get('/webhooks', [WebhookController::class, 'list']);
-            Route::delete('/webhooks/{id}', [WebhookController::class, 'delete']);
+            // Moderator+ can update
+            Route::middleware('role:moderator')->group(function() {
+                Route::put('anime/{id}', [\App\Http\Controllers\Api\AnimeController::class, 'update']);
+                Route::patch('anime/{id}', [\App\Http\Controllers\Api\AnimeController::class, 'update']);
+            });
+
+            // Admin only can delete and create
+            Route::middleware('role:admin')->group(function() {
+                Route::post('anime', [\App\Http\Controllers\Api\AnimeController::class, 'store']);
+                Route::delete('anime/{id}', [\App\Http\Controllers\Api\AnimeController::class, 'destroy']);
+                
+                // Analytics & Webhooks (Admin only)
+                Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+                Route::delete('/analytics/clear', [AnalyticsController::class, 'clearAnalytics']);
+                
+                Route::post('/webhooks', [WebhookController::class, 'register']);
+                Route::get('/webhooks', [WebhookController::class, 'list']);
+                Route::delete('/webhooks/{id}', [WebhookController::class, 'delete']);
+            });
         });
     });
 
