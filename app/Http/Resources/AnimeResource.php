@@ -13,20 +13,22 @@ class AnimeResource extends JsonResource
      *
      * @return array<string, mixed>
      */
-    public function toArray(Request $request): array
-    {
-        return [
-            'id' => $this['id'] ?? null,
-            'title' => $this['title'] ?? '',
-            'slug' => Str::slug($this['title'] ?? ''),
-            'genre' => $this['genre'] ?? '',
-            'description' => $this['description'] ?? '',
-            'image_url' => $this['imageUrl'] ?? '', // Mapping imageUrl to snake_case if preferred, or keeping camelCase
-            // 'rating' => 0, // Placeholder for future logic
-            // 'views_count' => 0, // Placeholder
-            'links' => [
-                'self' => url("/api/anime/{$this['id']}"),
-            ],
-        ];
-    }
+   public function toArray(Request $request): array
+{
+    return [
+        'id' => $this['id'] ?? null,
+        'anilist_id' => $this['anilist_id'] ?? null,  // ← Добавь это
+        'title_romaji' => $this['title_romaji'] ?? null,  // ← И это (главное!)
+        'title_english' => $this['title_english'] ?? null,  // Если нужно
+        'title' => $this['title'] ?? '',  // Оставь старое, если нужно
+        'slug' => Str::slug($this['title'] ?? ''),
+        'genre' => $this['genre'] ?? '',
+        'description' => $this['description'] ?? '',
+        'image_url' => $this['imageUrl'] ?? '',
+        'links' => [
+            'self' => url("/api/anime/{$this['id']}"),
+        ],
+    ];
+}
+
 }

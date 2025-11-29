@@ -76,6 +76,8 @@ Route::middleware([ApiAnalyticsMiddleware::class])->group(function () {
                 
                 // Analytics & Webhooks (Admin only)
                 Route::get('/analytics/dashboard', [AnalyticsController::class, 'dashboard']);
+                Route::get('/dashboard/stats', [AnalyticsController::class, 'realTimeStats']);
+                Route::get('/audit-logs', [AnalyticsController::class, 'auditLogs']);
                 Route::delete('/analytics/clear', [AnalyticsController::class, 'clearAnalytics']);
                 
                 Route::post('/webhooks', [WebhookController::class, 'register']);

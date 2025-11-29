@@ -19,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Models\Anime::observe(\App\Observers\AuditObserver::class);
+        \App\Models\Tag::observe(\App\Observers\AuditObserver::class);
+        \App\Models\User::observe(\App\Observers\AuditObserver::class);
+
         \Illuminate\Support\Facades\RateLimiter::for('guest', function (\Illuminate\Http\Request $request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(20)->by($request->ip());
         });

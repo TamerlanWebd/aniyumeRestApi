@@ -17,8 +17,10 @@
         "kreait/laravel-firebase": "^6.1",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.2",
+        "laravel/telescope": "^5.15",
         "laravel/tinker": "^2.10.1",
         "php-open-source-saver/jwt-auth": "^2.8",
+        "pusher/pusher-php-server": "^7.2",
         "rebing/graphql-laravel": "^9.12"
     },
     "require-dev": {

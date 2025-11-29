@@ -66,4 +66,18 @@ class AnalyticsController extends Controller
             'message' => 'Analytics cleared successfully'
         ]);
     }
+
+    public function realTimeStats()
+    {
+        return response()->json([
+            'anime_count' => \App\Models\Anime::count(),
+            'user_count' => \App\Models\User::count(),
+        ]);
+    }
+
+    public function auditLogs()
+    {
+        $logs = \App\Models\AuditLog::latest()->take(50)->get();
+        return response()->json(['data' => $logs]);
+    }
 }

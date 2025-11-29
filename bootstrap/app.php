@@ -17,7 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Глобальные middleware для ВСЕХ запросов
+         $middleware->api(prepend: [
+            \Illuminate\Http\Middleware\HandleCors::class,
+        ]);
         $middleware->append(BlockedIpMiddleware::class);
         $middleware->append(SecurityHeadersMiddleware::class);
         $middleware->append(ValidateRequestMiddleware::class);
