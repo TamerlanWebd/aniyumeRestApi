@@ -2,147 +2,61 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Routing\Controller;
+use App\Http\Controllers\Controller;
+use App\Repositories\AnimeRepository;
 use Illuminate\Http\Request;
-use App\Services\FirestoreRestService;
-use App\Http\Resources\AnimeResource;
+use Illuminate\Http\JsonResponse;
 
-/**
- * @OA\Tag(
- *     name="Anime",
- *     description="API Endpoints of Anime"
- * )
- */
 class AnimeController extends Controller
 {
-    protected $firestore;
-    protected $auditService;
-    protected $collectionName = 'anime';
+    public function __construct(
+        private AnimeRepository $animeRepository
+    ) {}
 
-    public function __construct(FirestoreRestService $firestore, \App\Services\AuditService $auditService)
+    public function index(Request $request): JsonResponse
     {
-        $this->firestore = $firestore;
-        $this->auditService = $auditService;
-    }
-
-    /**
-     * @OA\Get(
-     *      path="/api/anime",
-     *      operationId="getAnimeList",
-     *      tags={"Anime"},
-     *      summary="Get list of anime",
-     *      description="Returns list of anime",
-     *      @OA\Parameter(
-     *          name="page",
-     *          in="query",
-     *          description="Page number",
-     *          required=false,
-     *          @OA\Schema(type="integer")
-     *      ),
-     *      @OA\Parameter(
-     *          name="limit",
-     *          in="query",
-     *          description="Items per page",
-     *          required=false,
-     *          @OA\Schema(type="integer")
-     *      ),
-     *      @OA\Response(
-     *          response=200,
-     *          description="Successful operation",
-     *       ),
-     *      @OA\Response(
-     *          response=401,
-     *          description="Unauthenticated",
-     *      ),
-     *      @OA\Response(
-     *          response=403,
-     *          description="Forbidden"
-     *      )
-     *     )
-     */
-    public function index(Request $request)
-    {
-        $limit = $request->input('limit', 10);
-        $page = $request->input('page', 1);
-        $offset = ($page - 1) * $limit;
-
-        $animeList = $this->firestore->collection($this->collectionName)->list($limit, $offset);
-
-        return AnimeResource::collection(collect($animeList))->additional([
-            'meta' => [
-                'page' => (int)$page,
-                'limit' => (int)$limit,
-            ]
-        ]);
-    }
-
-    public function show($id)
-    {
-        $doc = $this->firestore->collection($this->collectionName)->get($id);
-
-        if (!$doc) {
-            return response()->json(['error' => 'Anime not found'], 404);
-        }
-
-        return new AnimeResource($doc);
-    }
-
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'title' => 'required|string',
-            'genre' => 'required|string',
-            'description' => 'required|string',
-            'imageUrl' => 'required|string',
+        $filters = $request->only([
+            'search',
+            'genres',
+            'type',
+            'status',
+            'year',
+            'season',
+            'is_adult',
+            'min_score',
+            'sort',
+            'order',
         ]);
 
-        $doc = $this->firestore->collection($this->collectionName)->add($data);
+        $perPage = $request->input('per_page', 20);
 
-        // Trigger Webhook Event
-        event(new \App\Events\AnimeCreated($doc));
+        $anime = $this->animeRepository->search($filters, $perPage);
 
-        // Audit Log
-        $this->auditService->log('CREATE', 'Anime', $doc['id'] ?? 'unknown', [], $doc);
-
-        return new AnimeResource($doc);
+        return response()->json($anime);
     }
 
-    public function update(Request $request, $id)
+    public function show(int $anilistId): JsonResponse
     {
-        $data = $request->validate([
-            'title' => 'sometimes|string',
-            'genre' => 'sometimes|string',
-            'description' => 'sometimes|string',
-            'imageUrl' => 'sometimes|string',
-        ]);
+        $anime = $this->animeRepository->findByAnilistId($anilistId);
 
-        if (empty($data)) {
-            return response()->json(['message' => 'No data to update'], 400);
+        if (!$anime) {
+            return response()->json(['message' => 'Anime not found'], 404);
         }
 
-        $doc = $this->firestore->collection($this->collectionName)->update($id, $data);
-
-        if ($doc === false) {
-            return response()->json(['error' => 'Anime not found'], 404);
-        }
-
-        // Audit Log
-        $this->auditService->log('UPDATE', 'Anime', $id, [], $data);
-
-        return new AnimeResource($doc);
+        return response()->json($anime);
     }
 
-    public function destroy($id)
+    public function popular(): JsonResponse
     {
-        $success = $this->firestore->collection($this->collectionName)->delete($id);
-        
-        if (!$success) {
-             return response()->json(['error' => 'Failed to delete'], 500);
-        }
+        $anime = $this->animeRepository->getPopular();
 
-        // Audit Log
-        $this->auditService->log('DELETE', 'Anime', $id);
+        return response()->json($anime);
+    }
 
-        return response()->json(['message' => 'Deleted successfully']);
+    public function trending(): JsonResponse
+    {
+        $anime = $this->animeRepository->getTrending();
+
+        return response()->json($anime);
     }
 }

@@ -6,22 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('tags', function (Blueprint $table) {
+        Schema::create('sync_updates', function (Blueprint $table) {
             $table->id();
+            $table->bigInteger('anilist_id')->unique();
+            $table->string('hash')->nullable();
+            $table->timestamp('last_synced');
             $table->timestamps();
+            
+            $table->index('last_synced');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('tags');
+        Schema::dropIfExists('sync_updates');
     }
 };

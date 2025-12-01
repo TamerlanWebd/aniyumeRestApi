@@ -35,7 +35,7 @@ class AuditObserver
         }
 
         AuditLog::create([
-            'user_id' => Auth::id() ?? 'system', // Adjust based on your Auth setup
+            'user_id' => Auth::id() ?? null, // System action if null
             'action' => $action,
             'model_type' => get_class($model),
             'model_id' => $model->getKey(),

@@ -10,6 +10,40 @@ use Kreait\Firebase\Factory;
 
 class AuthController extends Controller
 {
+    public function login(Request $request)
+    {
+        try {
+            $request->validate([
+                'email' => 'required|email',
+                'password' => 'required',
+            ]);
+
+            $user = User::where('email', $request->email)->first();
+
+            if (! $user || ! \Illuminate\Support\Facades\Hash::check($request->password, $user->password)) {
+                return response()->json(['message' => 'Invalid credentials'], 401);
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged in successfully',
+                'token' => $token,
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                    'is_admin' => $user->isAdmin()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('❌ Login error', ['error' => $e->getMessage()]);
+            return response()->json(['message' => 'Login failed'], 500);
+        }
+    }
+
     public function googleAuth(Request $request)
     {
         try {
@@ -72,6 +106,73 @@ class AuthController extends Controller
                 'success' => false,
                 'message' => 'Authentication failed: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    public function redirectToGoogle()
+    {
+        $client = new \Google\Client();
+        $client->setClientId('512857196956-ajqmk34it9bp44bsrnf86m7fr2h8g9r0.apps.googleusercontent.com');
+        $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
+        $client->setRedirectUri(env('APP_URL') . '/api/auth/google/callback');
+        $client->addScope('email');
+        $client->addScope('profile');
+
+        return response()->json([
+            'url' => $client->createAuthUrl()
+        ]);
+    }
+
+    public function handleGoogleCallback(Request $request)
+    {
+        try {
+            $code = $request->input('code');
+
+            if (!$code) {
+                return response()->json(['error' => 'No code provided'], 400);
+            }
+
+            $client = new \Google\Client();
+            $client->setClientId('512857196956-ajqmk34it9bp44bsrnf86m7fr2h8g9r0.apps.googleusercontent.com');
+            $client->setClientSecret(env('GOOGLE_CLIENT_SECRET'));
+            $client->setRedirectUri(env('APP_URL') . '/api/auth/google/callback');
+
+            $token = $client->fetchAccessTokenWithAuthCode($code);
+
+            if (isset($token['error'])) {
+                throw new \Exception('Google Token Error: ' . $token['error']);
+            }
+
+            $client->setAccessToken($token['access_token']);
+            $googleUser = $client->verifyIdToken($token['id_token']);
+
+            if (!$googleUser) {
+                throw new \Exception('Invalid ID token');
+            }
+
+            $email = $googleUser['email'];
+            $name = $googleUser['name'];
+            $avatar = $googleUser['picture'];
+            $uid = $googleUser['sub'];
+
+            $user = User::updateOrCreate(
+                ['email' => $email],
+                [
+                    'name' => $name,
+                    'avatar' => $avatar,
+                    'firebase_uid' => $uid,
+                ]
+            );
+
+            $authToken = $user->createToken('auth_token')->plainTextToken;
+
+            // Redirect to frontend with token
+            $frontendUrl = env('FRONTEND_URL', 'http://localhost:3000');
+            return redirect("{$frontendUrl}/auth/callback?token={$authToken}");
+
+        } catch (\Exception $e) {
+            \Log::error('❌ Google Callback Error', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Authentication failed'], 500);
         }
     }
 

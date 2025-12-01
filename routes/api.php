@@ -8,8 +8,9 @@ use App\Http\Controllers\Api\AnimeSearchController;
 use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\WebhookController;
+use App\Http\Controllers\Api\UserAnimeController;
 use App\Http\Middleware\ApiAnalyticsMiddleware;
-
+use App\Services\FirebaseService;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -41,14 +42,22 @@ Route::middleware([ApiAnalyticsMiddleware::class])->group(function () {
         Route::get('anime/autocomplete', [AnimeSearchController::class, 'autocomplete']);
         Route::get('anime/genres', [AnimeSearchController::class, 'genres']);
 
-        // Default route (pointing to V2 for convenience or V1 if preferred)
-        Route::get('anime', [\App\Http\Controllers\Api\V2\AnimeController::class, 'index']);
-        Route::get('anime/{id}', [\App\Http\Controllers\Api\V2\AnimeController::class, 'show']);
+        // Hybrid Architecture Routes (PostgreSQL + Firebase)
+        Route::prefix('anime')->group(function () {
+            Route::get('/', [AnimeController::class, 'index']);
+            Route::get('/popular', [AnimeController::class, 'popular']);
+            Route::get('/trending', [AnimeController::class, 'trending']);
+            Route::get('/{anilistId}', [AnimeController::class, 'show']);
+        });
+
     });
 
     // ==================== AUTHENTICATION ====================
     Route::middleware('throttle:auth')->group(function () {
+        Route::post('/auth/login', [AuthController::class, 'login']);
         Route::post('/auth/google', [AuthController::class, 'googleAuth']);
+        Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle']);
+        Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback']);
     });
 
     // ==================== PROTECTED ENDPOINTS ====================
@@ -85,6 +94,27 @@ Route::middleware([ApiAnalyticsMiddleware::class])->group(function () {
                 Route::delete('/webhooks/{id}', [WebhookController::class, 'delete']);
             });
         });
+        // User Data (Firebase)
+        Route::prefix('user/favorites')->group(function () {
+            Route::get('/', [UserAnimeController::class, 'getFavorites']);
+            Route::post('/{animeId}', [UserAnimeController::class, 'addToFavorites']);
+            Route::delete('/{animeId}', [UserAnimeController::class, 'removeFromFavorites']);
+        });
+
+        Route::prefix('user/list')->group(function () {
+            Route::get('/', [UserAnimeController::class, 'getList']);
+            Route::post('/{animeId}', [UserAnimeController::class, 'addToList']);
+            Route::patch('/{itemId}', [UserAnimeController::class, 'updateListItem']);
+            Route::delete('/{itemId}', [UserAnimeController::class, 'removeFromList']);
+        });
+
+        Route::prefix('user/history')->group(function () {
+            Route::get('/', [UserAnimeController::class, 'getHistory']);
+            Route::post('/{animeId}', [UserAnimeController::class, 'addToHistory']);
+        });
+
+
+
     });
 
 });

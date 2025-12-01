@@ -6,25 +6,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-class Tag extends Model
+class Character extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'anilist_id',
-        'name',
+        'name_full',
+        'name_native',
         'description',
-        'category',
-        'is_adult',
-    ];
-
-    protected $casts = [
-        'is_adult' => 'boolean',
+        'image',
     ];
 
     public function anime(): BelongsToMany
     {
         return $this->belongsToMany(Anime::class)
-            ->withPivot('rank');
+            ->withPivot('role');
     }
 }
